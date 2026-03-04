@@ -37,6 +37,14 @@ lerna-debug.log*
 .env
 .env.local
 .env.*.local
+.env.aiven
+.env.neon
+
+# Test files with credentials
+test-connection.js
+test-aiven-direct.js
+test-pg17.js
+test-neon.js
 
 # Temp
 *.swp
