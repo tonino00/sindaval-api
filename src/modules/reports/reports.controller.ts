@@ -1,4 +1,4 @@
-import { Controller, Get, Res } from '@nestjs/common';
+import { Body, Controller, Get, Post, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ReportsService } from './reports.service';
@@ -24,6 +24,17 @@ export class ReportsController {
   @ApiOperation({ summary: 'Exportar usuários em CSV' })
   @ApiResponse({ status: 200, description: 'CSV gerado' })
   async exportCsv(@Res() res: Response) {
+    const csv = await this.reportsService.exportCsv();
+    res.header('Content-Type', 'text/csv');
+    res.header('Content-Disposition', 'attachment; filename=usuarios.csv');
+    return res.send(csv);
+  }
+
+  @Post('export')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Exportar relatórios (Admin)' })
+  @ApiResponse({ status: 200, description: 'Arquivo exportado' })
+  async export(@Body() _body: any, @Res() res: Response) {
     const csv = await this.reportsService.exportCsv();
     res.header('Content-Type', 'text/csv');
     res.header('Content-Disposition', 'attachment; filename=usuarios.csv');

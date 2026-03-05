@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Header } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
@@ -22,18 +22,24 @@ export class NotificationsController {
 
   @Get()
   @Roles(UserRole.ADMIN)
+  @Header('Cache-Control', 'no-store')
+  @Header('Pragma', 'no-cache')
   @ApiOperation({ summary: 'Listar todas notificações (Admin)' })
   findAll() {
     return this.notificationsService.findAll();
   }
 
   @Get('me/notifications')
+  @Header('Cache-Control', 'no-store')
+  @Header('Pragma', 'no-cache')
   @ApiOperation({ summary: 'Minhas notificações' })
   findUserNotifications(@CurrentUser('id') userId: string) {
     return this.notificationsService.findUserNotifications(userId);
   }
 
   @Get('me/notifications/unread-count')
+  @Header('Cache-Control', 'no-store')
+  @Header('Pragma', 'no-cache')
   @ApiOperation({ summary: 'Contador de notificações não lidas' })
   getUnreadCount(@CurrentUser('id') userId: string) {
     return this.notificationsService.getUnreadCount(userId);

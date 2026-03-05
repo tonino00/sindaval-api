@@ -8,5 +8,6 @@ import { User } from '../users/entities/user.entity';
   imports: [TypeOrmModule.forFeature([User])],
   controllers: [DigitalCardController],
   providers: [DigitalCardService],
+  exports: [DigitalCardService],
 })
 export class DigitalCardModule {}

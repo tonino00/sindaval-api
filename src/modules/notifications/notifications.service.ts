@@ -35,7 +35,8 @@ export class NotificationsService {
         lida: false,
       });
     } else {
-      const users = await this.getUsersBySegment(createNotificationDto.segmento);
+      const segmento = createNotificationDto.segmento ?? NotificationSegment.TODOS;
+      const users = await this.getUsersBySegment(segmento);
       const userNotifications = users.map(user => ({
         userId: user.id,
         notificationId: savedNotification.id,

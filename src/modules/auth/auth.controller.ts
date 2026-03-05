@@ -8,6 +8,7 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
 import { Response, Request } from 'express';
@@ -88,7 +89,7 @@ export class AuthController {
     const refreshToken = request.cookies?.refreshToken;
 
     if (!refreshToken) {
-      throw new Error('Refresh token não encontrado');
+      throw new UnauthorizedException('Refresh token não encontrado');
     }
 
     const tokens = await this.authService.refreshToken(refreshToken);

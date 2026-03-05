@@ -82,7 +82,45 @@ export class User {
   auditLogs: AuditLog[];
 
   get cpf(): string {
-    return this.cpfEncrypted ? EncryptionUtil.decrypt(this.cpfEncrypted) : null;
+    if (!this.cpfEncrypted) {
+      return null;
+    }
+
+    const looksLikeCpf = (value: string) => {
+      if (typeof value !== 'string') {
+        return false;
+      }
+      const digits = value.replace(/\D/g, '');
+      if (digits.length !== 11) {
+        return false;
+      }
+      return /^[0-9.\-\s]+$/.test(value);
+    };
+
+    const maybeBase64 = (value: string) => /^[A-Za-z0-9+/]+={0,2}$/.test(value);
+
+    let current = this.cpfEncrypted;
+    for (let i = 0; i < 5; i++) {
+      let decrypted: string;
+      try {
+        decrypted = EncryptionUtil.decrypt(current);
+      } catch {
+        return null;
+      }
+
+      if (looksLikeCpf(decrypted)) {
+        return decrypted;
+      }
+
+      if (maybeBase64(decrypted)) {
+        current = decrypted;
+        continue;
+      }
+
+      return decrypted;
+    }
+
+    return null;
   }
 
   set cpf(value: string) {
@@ -92,7 +130,12 @@ export class User {
   @BeforeInsert()
   @BeforeUpdate()
   encryptCpf() {
-    if (this.cpfEncrypted && !this.cpfEncrypted.includes('=')) {
+    if (!this.cpfEncrypted) {
+      return;
+    }
+
+    const looksLikePlainCpf = /^[0-9.\-\s]{11,20}$/.test(this.cpfEncrypted);
+    if (looksLikePlainCpf) {
       this.cpfEncrypted = EncryptionUtil.encrypt(this.cpfEncrypted);
     }
   }

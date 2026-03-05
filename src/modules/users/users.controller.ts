@@ -12,14 +12,45 @@ import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagg
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateMeDto } from './dto/update-me.dto';
+import { UpdatePasswordDto } from './dto/update-password.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { DigitalCardService } from '../digital-card/digital-card.service';
 
 @ApiTags('users')
 @ApiCookieAuth()
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly digitalCardService: DigitalCardService,
+  ) {}
+
+  @Patch('me')
+  @ApiOperation({ summary: 'Atualizar meu perfil' })
+  updateMe(@CurrentUser('id') userId: string, @Body() dto: UpdateMeDto) {
+    return this.usersService.updateMe(userId, dto);
+  }
+
+  @Get('me')
+  @ApiOperation({ summary: 'Meu perfil' })
+  getMe(@CurrentUser('id') userId: string) {
+    return this.usersService.getMe(userId);
+  }
+
+  @Patch('me/password')
+  @ApiOperation({ summary: 'Alterar minha senha' })
+  updateMyPassword(@CurrentUser('id') userId: string, @Body() dto: UpdatePasswordDto) {
+    return this.usersService.updateMyPassword(userId, dto.senhaAtual, dto.novaSenha);
+  }
+
+  @Get('me/qrcode')
+  @ApiOperation({ summary: 'Gerar QR Code (meu)' })
+  getMyQrCode(@CurrentUser('id') userId: string) {
+    return this.digitalCardService.generateQRCode(userId);
+  }
 
   @Post()
   @Roles(UserRole.ADMIN)

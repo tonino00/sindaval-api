@@ -16,25 +16,34 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<any> {
+  async validateUser(email: string, password: string): Promise<User> {
+    console.log('🔍 [DEBUG] Tentando login com email:', email);
+    
     const user = await this.userRepository.findOne({ where: { email } });
 
     if (!user) {
+      console.log('❌ [DEBUG] Usuário não encontrado no banco');
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
+    console.log('✅ [DEBUG] Usuário encontrado:', user.email);
+    console.log('🔐 [DEBUG] Hash no banco:', user.senhaHash?.substring(0, 20) + '...');
+    
     const isPasswordValid = await bcrypt.compare(password, user.senhaHash);
+
+    console.log('🔐 [DEBUG] Senha válida?', isPasswordValid);
 
     if (!isPasswordValid) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
     if (user.status === UserStatus.INATIVO) {
+      console.log('❌ [DEBUG] Usuário inativo');
       throw new UnauthorizedException('Usuário inativo');
     }
 
-    const { senhaHash, ...result } = user;
-    return result;
+    console.log('✅ [DEBUG] Login bem-sucedido!');
+    return user;
   }
 
   async login(user: any) {
@@ -62,6 +71,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         nomeCompleto: user.nomeCompleto,
+        cpf: user.cpf,
         role: user.role,
         status: user.status,
       },
