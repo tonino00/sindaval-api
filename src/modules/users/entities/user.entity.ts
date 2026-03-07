@@ -45,6 +45,9 @@ export class User {
   @Column({ length: 100, nullable: true })
   instagram: string;
 
+  @Column({ name: 'foto_url', type: 'text', nullable: true })
+  fotoUrl: string;
+
   @Column({
     type: 'enum',
     enum: UserRole,

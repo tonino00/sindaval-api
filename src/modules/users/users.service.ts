@@ -14,7 +14,7 @@ export class UsersService {
     private userRepository: Repository<User>,
   ) {}
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
+  async create(createUserDto: CreateUserDto, fotoUrl?: string): Promise<User> {
     const existingUser = await this.userRepository.findOne({
       where: [{ email: createUserDto.email }, { numeroOAB: createUserDto.numeroOAB }],
     });
@@ -30,6 +30,7 @@ export class UsersService {
     const user = this.userRepository.create({
       ...rest,
       senhaHash: hashedPassword,
+      ...(fotoUrl ? { fotoUrl } : {}),
     });
 
     user.cpf = cpf;
@@ -39,7 +40,7 @@ export class UsersService {
 
   async findAll(): Promise<User[]> {
     return this.userRepository.find({
-      select: ['id', 'nomeCompleto', 'email', 'numeroOAB', 'telefone', 'role', 'status', 'createdAt'],
+      select: ['id', 'nomeCompleto', 'email', 'numeroOAB', 'telefone', 'fotoUrl', 'role', 'status', 'createdAt'],
     });
   }
 
@@ -93,6 +94,7 @@ export class UsersService {
       telefone: saved.telefone,
       numeroOAB: saved.numeroOAB,
       instagram: saved.instagram,
+      fotoUrl: saved.fotoUrl,
       enderecoResidencial: saved.enderecoResidencial,
       enderecoProfissional: saved.enderecoProfissional,
       role: saved.role,
@@ -112,6 +114,7 @@ export class UsersService {
       telefone: user.telefone,
       numeroOAB: user.numeroOAB,
       instagram: user.instagram,
+      fotoUrl: user.fotoUrl,
       enderecoResidencial: user.enderecoResidencial,
       enderecoProfissional: user.enderecoProfissional,
       role: user.role,

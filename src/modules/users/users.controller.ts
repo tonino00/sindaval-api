@@ -7,8 +7,14 @@ import {
   Param,
   Delete,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth, ApiConsumes } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import * as fs from 'fs';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -57,8 +63,25 @@ export class UsersController {
   @ApiOperation({ summary: 'Criar novo usuário (Admin)' })
   @ApiResponse({ status: 201, description: 'Usuário criado com sucesso' })
   @ApiResponse({ status: 409, description: 'Email ou OAB já cadastrado' })
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileInterceptor('foto', {
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const uploadPath = 'uploads/users';
+          fs.mkdirSync(uploadPath, { recursive: true });
+          cb(null, uploadPath);
+        },
+        filename: (req, file, cb) => {
+          const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+          cb(null, `user-${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+    }),
+  )
+  create(@Body() createUserDto: CreateUserDto, @UploadedFile() foto?: { path: string }) {
+    const fotoUrl = foto ? `/${foto.path.replace(/\\/g, '/')}` : undefined;
+    return this.usersService.create(createUserDto, fotoUrl);
   }
 
   @Get()
