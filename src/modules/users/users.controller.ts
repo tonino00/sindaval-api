@@ -9,6 +9,7 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -36,8 +37,59 @@ export class UsersController {
 
   @Patch('me')
   @ApiOperation({ summary: 'Atualizar meu perfil' })
-  updateMe(@CurrentUser('id') userId: string, @Body() dto: UpdateMeDto) {
-    return this.usersService.updateMe(userId, dto);
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileInterceptor('foto', {
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const uploadPath = 'uploads/users';
+          fs.mkdirSync(uploadPath, { recursive: true });
+          cb(null, uploadPath);
+        },
+        filename: (req, file, cb) => {
+          const userId = req.user?.id || 'unknown';
+          const uniqueSuffix = Date.now();
+          cb(null, `user-${userId}-${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (allowedMimes.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('Arquivo inválido. Apenas imagens são permitidas.'), false);
+        }
+      },
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB
+      },
+    }),
+  )
+  async updateMe(
+    @CurrentUser('id') userId: string,
+    @Body() dto: UpdateMeDto,
+    @UploadedFile() foto?: { path: string; mimetype: string; originalname: string },
+  ) {
+    let fotoUrl: string | undefined;
+
+    if (foto) {
+      fotoUrl = `/${foto.path.replace(/\\/g, '/')}`;
+
+      // Deletar foto antiga se existir
+      const user = await this.usersService.findMe(userId);
+      if (user.fotoUrl) {
+        const oldPhotoPath = user.fotoUrl.replace(/^\//, '');
+        try {
+          if (fs.existsSync(oldPhotoPath)) {
+            fs.unlinkSync(oldPhotoPath);
+          }
+        } catch (error) {
+          console.error('Erro ao deletar foto antiga:', error);
+        }
+      }
+    }
+
+    return this.usersService.updateMe(userId, dto, fotoUrl);
   }
 
   @Get('me')

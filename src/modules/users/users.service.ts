@@ -72,7 +72,7 @@ export class UsersService {
     return user;
   }
 
-  async updateMe(userId: string, dto: UpdateMeDto): Promise<User> {
+  async updateMe(userId: string, dto: UpdateMeDto, fotoUrl?: string): Promise<User> {
     const user = await this.findMe(userId);
 
     const anyDto = dto as any;
@@ -85,6 +85,11 @@ export class UsersService {
     }
 
     Object.assign(user, anyDto);
+    
+    if (fotoUrl !== undefined) {
+      user.fotoUrl = fotoUrl;
+    }
+
     const saved = await this.userRepository.save(user);
 
     return {
