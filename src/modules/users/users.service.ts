@@ -39,9 +39,26 @@ export class UsersService {
   }
 
   async findAll(): Promise<User[]> {
-    return this.userRepository.find({
-      select: ['id', 'nomeCompleto', 'email', 'numeroOAB', 'telefone', 'fotoUrl', 'role', 'status', 'createdAt'],
-    });
+    const users = await this.userRepository.find();
+
+    return users.map((user) =>
+      ({
+        id: user.id,
+        nomeCompleto: user.nomeCompleto,
+        email: user.email,
+        telefone: user.telefone,
+        numeroOAB: user.numeroOAB,
+        instagram: user.instagram,
+        fotoUrl: user.fotoUrl,
+        enderecoResidencial: user.enderecoResidencial,
+        enderecoProfissional: user.enderecoProfissional,
+        role: user.role,
+        status: user.status,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        cpf: user.cpf,
+      }) as any,
+    );
   }
 
   async findOne(id: string): Promise<User> {

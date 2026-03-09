@@ -8,6 +8,7 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { User } from '../users/entities/user.entity';
+import { UsersModule } from '../users/users.module';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { APP_GUARD } from '@nestjs/core';
@@ -15,6 +16,7 @@ import { APP_GUARD } from '@nestjs/core';
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
+    UsersModule,
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

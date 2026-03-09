@@ -31,11 +31,14 @@ export class AdminController {
   @Post('reports/export')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Exportar relatórios (Admin)' })
-  async exportReports(@Body() _body: any, @Res() res: Response) {
-    const csv = await this.reportsService.exportCsv();
-    res.header('Content-Type', 'text/csv');
-    res.header('Content-Disposition', 'attachment; filename=usuarios.csv');
-    return res.send(csv);
+  async exportReports(
+    @Body() body: { tipo: string; formato?: string },
+    @Res() res: Response,
+  ) {
+    const file = await this.reportsService.exportReport(body?.tipo, body?.formato);
+    res.header('Content-Type', file.contentType);
+    res.header('Content-Disposition', `attachment; filename=${file.filename}`);
+    return res.send(file.data);
   }
 
   @Get('reports/preview')

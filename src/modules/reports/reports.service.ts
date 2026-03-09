@@ -9,6 +9,8 @@ import { UserNotification } from '../notifications/entities/user-notification.en
 import { UserStatus } from '../../common/enums/user-status.enum';
 import { PaymentMethod } from '../../common/enums/payment-method.enum';
 import { PaymentStatus } from '../../common/enums/payment-status.enum';
+import PDFDocument from 'pdfkit';
+import ExcelJS from 'exceljs';
 
 @Injectable()
 export class ReportsService {
@@ -208,5 +210,216 @@ export class ReportsService {
     });
 
     return csv;
+  }
+
+  private normalizeTipo(tipo: string): 'usuarios' | 'pagamentos' | 'convenios' | 'notificacoes' | 'financeiro' {
+    const normalized = (tipo || '').trim().toLowerCase();
+    if (
+      normalized === 'usuarios' ||
+      normalized === 'pagamentos' ||
+      normalized === 'convenios' ||
+      normalized === 'notificacoes' ||
+      normalized === 'financeiro'
+    ) {
+      return normalized;
+    }
+
+    throw new BadRequestException('Tipo inválido. Use: usuarios, pagamentos, convenios, notificacoes, financeiro');
+  }
+
+  private normalizeFormato(formato?: string): 'csv' | 'xlsx' | 'pdf' {
+    const normalized = (formato || '').trim().toLowerCase();
+    if (!normalized) {
+      return 'xlsx';
+    }
+    if (normalized === 'csv' || normalized === 'xlsx' || normalized === 'pdf') {
+      return normalized;
+    }
+    throw new BadRequestException('Formato inválido. Use: csv, xlsx, pdf');
+  }
+
+  private escapeCsv(value: any): string {
+    const str = value === null || value === undefined ? '' : String(value);
+    if (/[",\n\r]/.test(str)) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  }
+
+  private async getDetalhadoRows(tipo: ReturnType<ReportsService['normalizeTipo']>): Promise<{ filenameBase: string; headers: string[]; rows: any[][] }> {
+    switch (tipo) {
+      case 'usuarios': {
+        const users = await this.userRepository.find();
+        const headers = [
+          'id',
+          'nomeCompleto',
+          'email',
+          'cpf',
+          'numeroOAB',
+          'telefone',
+          'instagram',
+          'enderecoResidencial',
+          'enderecoProfissional',
+          'status',
+          'role',
+          'createdAt',
+        ];
+        const rows = users.map((u) => [
+          u.id,
+          u.nomeCompleto,
+          u.email,
+          u.cpf,
+          u.numeroOAB,
+          u.telefone,
+          u.instagram,
+          u.enderecoResidencial,
+          u.enderecoProfissional,
+          u.status,
+          u.role,
+          u.createdAt?.toISOString?.() ?? u.createdAt,
+        ]);
+        return { filenameBase: 'usuarios', headers, rows };
+      }
+
+      case 'pagamentos': {
+        const payments = await this.paymentRepository.find();
+        const headers = ['id', 'userId', 'valor', 'metodo', 'status', 'descricao', 'createdAt', 'dataPagamento'];
+        const rows = payments.map((p) => [
+          p.id,
+          p.userId,
+          p.valor,
+          p.metodo,
+          p.status,
+          p.descricao,
+          p.createdAt?.toISOString?.() ?? p.createdAt,
+          p.dataPagamento?.toISOString?.() ?? p.dataPagamento,
+        ]);
+        return { filenameBase: 'pagamentos', headers, rows };
+      }
+
+      case 'convenios': {
+        const agreements = await this.agreementRepository.find();
+        const headers = ['id', 'titulo', 'categoria', 'desconto', 'ativo', 'createdAt'];
+        const rows = agreements.map((a: any) => [
+          a.id,
+          a.titulo,
+          a.categoria,
+          a.desconto,
+          a.ativo,
+          a.createdAt?.toISOString?.() ?? a.createdAt,
+        ]);
+        return { filenameBase: 'convenios', headers, rows };
+      }
+
+      case 'notificacoes': {
+        const notifications = await this.notificationRepository.find();
+        const headers = ['id', 'titulo', 'mensagem', 'tipo', 'emailSent', 'whatsappSent', 'createdAt'];
+        const rows = notifications.map((n: any) => [
+          n.id,
+          n.titulo,
+          n.mensagem,
+          n.tipo,
+          n.emailSent,
+          n.whatsappSent,
+          n.createdAt?.toISOString?.() ?? n.createdAt,
+        ]);
+        return { filenameBase: 'notificacoes', headers, rows };
+      }
+
+      case 'financeiro': {
+        const payments = await this.paymentRepository.find();
+        const headers = ['id', 'userId', 'valor', 'metodo', 'status', 'createdAt', 'dataPagamento'];
+        const rows = payments.map((p) => [
+          p.id,
+          p.userId,
+          p.valor,
+          p.metodo,
+          p.status,
+          p.createdAt?.toISOString?.() ?? p.createdAt,
+          p.dataPagamento?.toISOString?.() ?? p.dataPagamento,
+        ]);
+        return { filenameBase: 'financeiro', headers, rows };
+      }
+    }
+  }
+
+  private async buildCsvBuffer(tipo: ReturnType<ReportsService['normalizeTipo']>): Promise<{ filename: string; contentType: string; data: Buffer }> {
+    const { filenameBase, headers, rows } = await this.getDetalhadoRows(tipo);
+    const lines = [headers.join(',')];
+    for (const row of rows) {
+      lines.push(row.map((v) => this.escapeCsv(v)).join(','));
+    }
+    const csv = `${lines.join('\n')}\n`;
+    return {
+      filename: `${filenameBase}.csv`,
+      contentType: 'text/csv',
+      data: Buffer.from(csv, 'utf8'),
+    };
+  }
+
+  private async buildXlsxBuffer(tipo: ReturnType<ReportsService['normalizeTipo']>): Promise<{ filename: string; contentType: string; data: Buffer }> {
+    const { filenameBase, headers, rows } = await this.getDetalhadoRows(tipo);
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Relatorio');
+
+    worksheet.addRow(headers);
+    for (const row of rows) {
+      worksheet.addRow(row);
+    }
+
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.columns = headers.map(() => ({ width: 22 }));
+
+    const arrayBuffer = (await workbook.xlsx.writeBuffer()) as ArrayBuffer;
+    return {
+      filename: `${filenameBase}.xlsx`,
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      data: Buffer.from(arrayBuffer),
+    };
+  }
+
+  private async buildPdfBuffer(tipo: ReturnType<ReportsService['normalizeTipo']>): Promise<{ filename: string; contentType: string; data: Buffer }> {
+    const summary = await this.getPreview(tipo);
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+
+    const chunks: Buffer[] = [];
+    doc.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+
+    const title = `Relatório - ${tipo}`;
+    doc.fontSize(18).text(title, { align: 'center' });
+    doc.moveDown(1);
+    doc.fontSize(10).text(`Gerado em: ${new Date().toISOString()}`);
+    doc.moveDown(1);
+
+    doc.fontSize(12);
+    for (const [key, value] of Object.entries(summary ?? {})) {
+      doc.text(`${key}: ${value}`);
+    }
+
+    doc.end();
+
+    await new Promise<void>((resolve) => {
+      doc.on('end', () => resolve());
+    });
+
+    const data = Buffer.concat(chunks);
+    return {
+      filename: `${tipo}.pdf`,
+      contentType: 'application/pdf',
+      data,
+    };
+  }
+
+  async exportReport(tipo: string, formato?: string): Promise<{ filename: string; contentType: string; data: Buffer }> {
+    const t = this.normalizeTipo(tipo);
+    const f = this.normalizeFormato(formato);
+
+    if (f === 'csv') {
+      return this.buildCsvBuffer(t);
+    }
+    if (f === 'xlsx') {
+      return this.buildXlsxBuffer(t);
+    }
+    return this.buildPdfBuffer(t);
   }
 }
