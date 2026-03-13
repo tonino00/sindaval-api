@@ -38,6 +38,16 @@ export class AuthController {
     private readonly usersService: UsersService,
   ) {}
 
+  private getAuthCookieOptions(maxAgeMs: number) {
+    const isProd = process.env.NODE_ENV === 'production';
+    return {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: (isProd ? 'strict' : 'lax') as 'strict' | 'lax',
+      maxAge: maxAgeMs,
+    };
+  }
+
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
@@ -83,19 +93,13 @@ export class AuthController {
     const user = await this.usersService.create(createUserDto, fotoUrl);
     const tokens = await this.authService.login(user);
 
-    response.cookie('jwt', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    response.cookie('jwt', tokens.accessToken, this.getAuthCookieOptions(7 * 24 * 60 * 60 * 1000));
 
-    response.cookie('refreshToken', tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
+    response.cookie(
+      'refreshToken',
+      tokens.refreshToken,
+      this.getAuthCookieOptions(30 * 24 * 60 * 60 * 1000),
+    );
 
     return {
       message: 'Cadastro realizado com sucesso',
@@ -121,19 +125,13 @@ export class AuthController {
 
     const tokens = await this.authService.login(user);
 
-    response.cookie('jwt', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    response.cookie('jwt', tokens.accessToken, this.getAuthCookieOptions(7 * 24 * 60 * 60 * 1000));
 
-    response.cookie('refreshToken', tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
+    response.cookie(
+      'refreshToken',
+      tokens.refreshToken,
+      this.getAuthCookieOptions(30 * 24 * 60 * 60 * 1000),
+    );
 
     return {
       requiresTwoFactor: false,
@@ -165,19 +163,13 @@ export class AuthController {
 
     const tokens = await this.authService.login(user);
 
-    response.cookie('jwt', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    response.cookie('jwt', tokens.accessToken, this.getAuthCookieOptions(7 * 24 * 60 * 60 * 1000));
 
-    response.cookie('refreshToken', tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
+    response.cookie(
+      'refreshToken',
+      tokens.refreshToken,
+      this.getAuthCookieOptions(30 * 24 * 60 * 60 * 1000),
+    );
 
     return {
       requiresTwoFactor: false,
@@ -242,8 +234,8 @@ export class AuthController {
   @ApiCookieAuth()
   @ApiResponse({ status: 200, description: 'Logout realizado com sucesso' })
   async logout(@Res({ passthrough: true }) response: Response) {
-    response.clearCookie('jwt');
-    response.clearCookie('refreshToken');
+    response.clearCookie('jwt', this.getAuthCookieOptions(0));
+    response.clearCookie('refreshToken', this.getAuthCookieOptions(0));
 
     return {
       message: 'Logout realizado com sucesso',
@@ -277,12 +269,7 @@ export class AuthController {
 
     const tokens = await this.authService.refreshToken(refreshToken);
 
-    response.cookie('jwt', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    response.cookie('jwt', tokens.accessToken, this.getAuthCookieOptions(7 * 24 * 60 * 60 * 1000));
 
     return {
       message: 'Token renovado com sucesso',
