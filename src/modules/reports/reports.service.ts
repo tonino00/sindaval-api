@@ -362,13 +362,140 @@ export class ReportsService {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Relatorio');
 
-    worksheet.addRow(headers);
-    for (const row of rows) {
-      worksheet.addRow(row);
+    const lastColumnIndex = headers.length;
+
+    const titleText = `Relatório - ${filenameBase.toUpperCase()}`;
+    worksheet.addRow([titleText]);
+    worksheet.mergeCells(1, 1, 1, lastColumnIndex);
+    const titleCell = worksheet.getCell(1, 1);
+    titleCell.font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A365D' } };
+    worksheet.getRow(1).height = 28;
+
+    worksheet.addRow([]);
+
+    const headerRowNumber = 3;
+    const headerRow = worksheet.getRow(headerRowNumber);
+    headerRow.values = headers as any;
+    headerRow.height = 20;
+
+    const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A365D' } } as const;
+    for (let col = 1; col <= lastColumnIndex; col++) {
+      const cell = headerRow.getCell(col);
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      cell.fill = headerFill;
     }
 
-    worksheet.getRow(1).font = { bold: true };
-    worksheet.columns = headers.map(() => ({ width: 22 }));
+    const dataStartRow = headerRowNumber + 1;
+    for (let i = 0; i < rows.length; i++) {
+      const rowNumber = dataStartRow + i;
+      const excelRow = worksheet.getRow(rowNumber);
+      excelRow.values = rows[i] as any;
+      excelRow.height = 18;
+
+      const isEven = i % 2 === 1;
+      const zebraFill = isEven
+        ? ({ type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7FAFC' } } as const)
+        : undefined;
+
+      for (let col = 1; col <= lastColumnIndex; col++) {
+        const cell = excelRow.getCell(col);
+        cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+        if (zebraFill) {
+          cell.fill = zebraFill;
+        }
+      }
+    }
+
+    const thinBorder = {
+      top: { style: 'thin' },
+      left: { style: 'thin' },
+      bottom: { style: 'thin' },
+      right: { style: 'thin' },
+    } as const;
+
+    const lastDataRowNumber = dataStartRow + rows.length - 1;
+    for (let r = headerRowNumber; r <= lastDataRowNumber; r++) {
+      const row = worksheet.getRow(r);
+      for (let c = 1; c <= lastColumnIndex; c++) {
+        row.getCell(c).border = thinBorder;
+      }
+    }
+
+    const headerToColIndex = new Map<string, number>();
+    headers.forEach((h, idx) => headerToColIndex.set(h, idx + 1));
+
+    const moneyHeaders = new Set(['valor', 'total', 'recebido', 'pendente', 'cancelado']);
+    const dateHeaders = new Set(['createdAt', 'updatedAt', 'dataPagamento']);
+
+    for (const [header, colIndex] of headerToColIndex.entries()) {
+      if (moneyHeaders.has(header)) {
+        for (let r = dataStartRow; r <= lastDataRowNumber; r++) {
+          const cell = worksheet.getRow(r).getCell(colIndex);
+          cell.numFmt = '"R$" #,##0.00';
+          if (typeof cell.value === 'string' && cell.value !== '') {
+            const asNumber = Number(cell.value);
+            if (!Number.isNaN(asNumber)) {
+              cell.value = asNumber;
+            }
+          }
+        }
+      }
+
+      if (dateHeaders.has(header)) {
+        for (let r = dataStartRow; r <= lastDataRowNumber; r++) {
+          const cell = worksheet.getRow(r).getCell(colIndex);
+          if (typeof cell.value === 'string' && cell.value) {
+            const d = new Date(cell.value);
+            if (!Number.isNaN(d.getTime())) {
+              cell.value = d;
+              cell.numFmt = 'dd/mm/yyyy hh:mm';
+            }
+          }
+        }
+      }
+    }
+
+    if (tipo === 'pagamentos' || tipo === 'financeiro') {
+      const valorCol = headerToColIndex.get('valor');
+      if (valorCol) {
+        const summaryRowNumber = lastDataRowNumber + 2;
+        const labelCell = worksheet.getCell(summaryRowNumber, 1);
+        labelCell.value = 'Total';
+        labelCell.font = { bold: true };
+
+        const totalCell = worksheet.getCell(summaryRowNumber, valorCol);
+        totalCell.value = { formula: `SUM(${worksheet.getColumn(valorCol).letter}${dataStartRow}:${worksheet.getColumn(valorCol).letter}${lastDataRowNumber})` };
+        totalCell.numFmt = '"R$" #,##0.00';
+        totalCell.font = { bold: true };
+
+        for (let c = 1; c <= lastColumnIndex; c++) {
+          worksheet.getRow(summaryRowNumber).getCell(c).border = thinBorder;
+        }
+      }
+    }
+
+    worksheet.columns.forEach((col) => {
+      let maxLength = 10;
+      col.eachCell({ includeEmpty: true }, (cell) => {
+        const v = cell.value as any;
+        const text =
+          v === null || v === undefined
+            ? ''
+            : typeof v === 'object' && v.formula
+              ? String(v.formula)
+              : v instanceof Date
+                ? v.toISOString()
+                : String(v);
+
+        maxLength = Math.max(maxLength, Math.min(60, text.length + 2));
+      });
+      col.width = maxLength;
+    });
+
+    worksheet.views = [{ state: 'frozen', xSplit: 0, ySplit: headerRowNumber }];
 
     const arrayBuffer = (await workbook.xlsx.writeBuffer()) as ArrayBuffer;
     return {
