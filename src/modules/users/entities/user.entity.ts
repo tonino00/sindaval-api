@@ -69,6 +69,20 @@ export class User {
   @Column({ name: 'qr_token', unique: true, nullable: true })
   qrToken: string;
 
+  @Column({ nullable: true })
+  @Exclude()
+  twoFactorSecret: string;
+
+  @Column({ default: false })
+  isTwoFactorEnabled: boolean;
+
+  @Column({ nullable: true, type: 'simple-array' })
+  @Exclude()
+  twoFactorRecoveryCodes: string[];
+
+  @Column({ nullable: true })
+  twoFactorBackupEmail: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

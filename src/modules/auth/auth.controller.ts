@@ -19,6 +19,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import * as fs from 'fs';
+import * as QRCode from 'qrcode';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -27,6 +28,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UsersService } from '../users/users.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { Generate2FADto, Verify2FADto, Login2faEndpointDto } from './dto/two-factor.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -109,6 +111,14 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Credenciais inválidas' })
   async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response) {
     const user = await this.authService.validateUser(loginDto.email, loginDto.password);
+
+    if (user.isTwoFactorEnabled) {
+      return {
+        requiresTwoFactor: true,
+        message: 'Código 2FA necessário',
+      };
+    }
+
     const tokens = await this.authService.login(user);
 
     response.cookie('jwt', tokens.accessToken, {
@@ -126,9 +136,104 @@ export class AuthController {
     });
 
     return {
+      requiresTwoFactor: false,
       message: 'Login realizado com sucesso',
       user: tokens.user,
     };
+  }
+
+  @Public()
+  @Post('login/2fa')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login de usuário com 2FA (step 2)' })
+  async login2fa(@Body() dto: Login2faEndpointDto, @Res({ passthrough: true }) response: Response) {
+    const user = await this.authService.validateUser(dto.email, dto.password);
+
+    if (!user.isTwoFactorEnabled) {
+      throw new BadRequestException('2FA não está habilitado para este usuário');
+    }
+
+    const tokenToValidate = (dto.recoveryCode || dto.twoFactorToken) as string;
+    if (!tokenToValidate) {
+      throw new BadRequestException('Código 2FA ou recovery code é obrigatório');
+    }
+
+    const ok = await this.authService.validateTwoFactorToken(user.id, tokenToValidate);
+    if (!ok) {
+      throw new UnauthorizedException('Código 2FA inválido');
+    }
+
+    const tokens = await this.authService.login(user);
+
+    response.cookie('jwt', tokens.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    response.cookie('refreshToken', tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
+    return {
+      requiresTwoFactor: false,
+      message: 'Login realizado com sucesso',
+      user: tokens.user,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('2fa/setup')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Iniciar configuração do 2FA' })
+  @ApiCookieAuth()
+  async setup2fa(@CurrentUser() currentUser: any, @Body() dto: Generate2FADto) {
+    const user = await this.authService.validateUser(currentUser.email, dto.password);
+    const result = await this.authService.startTwoFactorSetup(user.id);
+    const qrCodeDataUrl = await QRCode.toDataURL(result.otpauthUrl);
+    return {
+      otpauthUrl: result.otpauthUrl,
+      qrCodeDataUrl,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('2fa/confirm')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Confirmar e habilitar o 2FA' })
+  @ApiCookieAuth()
+  async confirm2fa(@CurrentUser('id') userId: string, @Body() dto: Verify2FADto) {
+    const result = await this.authService.confirmTwoFactorSetup(userId, dto.token);
+    const user = await this.authService.getUserById(userId);
+    return {
+      ...result,
+      user: {
+        id: user.id,
+        email: user.email,
+        nomeCompleto: user.nomeCompleto,
+        cpf: user.cpf,
+        role: user.role,
+        status: user.status,
+        isTwoFactorEnabled: user.isTwoFactorEnabled,
+      },
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('2fa/disable')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Desabilitar o 2FA' })
+  @ApiCookieAuth()
+  async disable2fa(@CurrentUser('id') userId: string, @Body() dto: Verify2FADto) {
+    const ok = await this.authService.validateTwoFactorToken(userId, dto.token);
+    if (!ok) {
+      throw new UnauthorizedException('Código 2FA inválido');
+    }
+    return this.authService.disableTwoFactor(userId);
   }
 
   @Post('logout')

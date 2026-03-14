@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/user.entity';
 import { UserStatus } from '../../common/enums/user-status.enum';
+import { TwoFactorService } from './two-factor.service';
 
 @Injectable()
 export class AuthService {
@@ -14,7 +15,57 @@ export class AuthService {
     private userRepository: Repository<User>,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private twoFactorService: TwoFactorService,
   ) {}
+
+  async getUserById(userId: string): Promise<User> {
+    return this.userRepository.findOne({ where: { id: userId } });
+  }
+
+  async startTwoFactorSetup(userId: string) {
+    const user = await this.getUserById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Usuário não encontrado');
+    }
+
+    const generated = await this.twoFactorService.generateTwoFactorSecret(userId, user.email);
+    return { otpauthUrl: generated.otpauthUrl };
+  }
+
+  async confirmTwoFactorSetup(userId: string, token: string) {
+    const enabled = await this.twoFactorService.enableTwoFactor(userId, token);
+    if (!enabled) {
+      throw new UnauthorizedException('Código 2FA inválido');
+    }
+
+    const user = await this.getUserById(userId);
+    return { recoveryCodes: user?.twoFactorRecoveryCodes || [] };
+  }
+
+  async disableTwoFactor(userId: string) {
+    const user = await this.getUserById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Usuário não encontrado');
+    }
+
+    await this.twoFactorService.disableTwoFactor(userId);
+    return { message: '2FA desativado com sucesso' };
+  }
+
+  async validateTwoFactorToken(userId: string, tokenOrRecoveryCode: string): Promise<boolean> {
+    const user = await this.getUserById(userId);
+    if (!user || !user.isTwoFactorEnabled) {
+      return false;
+    }
+
+    const token = (tokenOrRecoveryCode || '').trim();
+    const totpOk = await this.twoFactorService.verifyTwoFactorToken(userId, token);
+    if (totpOk) {
+      return true;
+    }
+
+    return this.twoFactorService.verifyRecoveryCode(userId, token);
+  }
 
   async validateUser(email: string, password: string): Promise<User> {
     console.log('🔍 [DEBUG] Tentando login com email:', email);
@@ -74,6 +125,7 @@ export class AuthService {
         cpf: user.cpf,
         role: user.role,
         status: user.status,
+        isTwoFactorEnabled: user.isTwoFactorEnabled,
       },
     };
   }
