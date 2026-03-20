@@ -38,12 +38,13 @@ export class AuthController {
     private readonly usersService: UsersService,
   ) {}
 
-  private getCookieOptions() {
+  private getAuthCookieOptions(maxAgeMs: number) {
     const isProd = process.env.NODE_ENV === 'production';
     return {
       httpOnly: true,
       secure: isProd,
       sameSite: (isProd ? 'none' : 'strict') as 'none' | 'strict',
+      maxAge: maxAgeMs,
     };
   }
 
@@ -92,17 +93,13 @@ export class AuthController {
     const user = await this.usersService.create(createUserDto, fotoUrl);
     const tokens = await this.authService.login(user);
 
-    const cookieBase = this.getCookieOptions();
+    response.cookie('jwt', tokens.accessToken, this.getAuthCookieOptions(7 * 24 * 60 * 60 * 1000));
 
-    response.cookie('jwt', tokens.accessToken, {
-      ...cookieBase,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    response.cookie('refreshToken', tokens.refreshToken, {
-      ...cookieBase,
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
+    response.cookie(
+      'refreshToken',
+      tokens.refreshToken,
+      this.getAuthCookieOptions(30 * 24 * 60 * 60 * 1000),
+    );
 
     return {
       message: 'Cadastro realizado com sucesso',
@@ -128,17 +125,13 @@ export class AuthController {
 
     const tokens = await this.authService.login(user);
 
-    const cookieBase = this.getCookieOptions();
+    response.cookie('jwt', tokens.accessToken, this.getAuthCookieOptions(7 * 24 * 60 * 60 * 1000));
 
-    response.cookie('jwt', tokens.accessToken, {
-      ...cookieBase,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    response.cookie('refreshToken', tokens.refreshToken, {
-      ...cookieBase,
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
+    response.cookie(
+      'refreshToken',
+      tokens.refreshToken,
+      this.getAuthCookieOptions(30 * 24 * 60 * 60 * 1000),
+    );
 
     return {
       requiresTwoFactor: false,
@@ -170,17 +163,13 @@ export class AuthController {
 
     const tokens = await this.authService.login(user);
 
-    const cookieBase = this.getCookieOptions();
+    response.cookie('jwt', tokens.accessToken, this.getAuthCookieOptions(7 * 24 * 60 * 60 * 1000));
 
-    response.cookie('jwt', tokens.accessToken, {
-      ...cookieBase,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    response.cookie('refreshToken', tokens.refreshToken, {
-      ...cookieBase,
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
+    response.cookie(
+      'refreshToken',
+      tokens.refreshToken,
+      this.getAuthCookieOptions(30 * 24 * 60 * 60 * 1000),
+    );
 
     return {
       requiresTwoFactor: false,
@@ -245,9 +234,8 @@ export class AuthController {
   @ApiCookieAuth()
   @ApiResponse({ status: 200, description: 'Logout realizado com sucesso' })
   async logout(@Res({ passthrough: true }) response: Response) {
-    const cookieBase = this.getCookieOptions();
-    response.clearCookie('jwt', cookieBase);
-    response.clearCookie('refreshToken', cookieBase);
+    response.clearCookie('jwt', this.getAuthCookieOptions(0));
+    response.clearCookie('refreshToken', this.getAuthCookieOptions(0));
 
     return {
       message: 'Logout realizado com sucesso',
@@ -281,12 +269,7 @@ export class AuthController {
 
     const tokens = await this.authService.refreshToken(refreshToken);
 
-    const cookieBase = this.getCookieOptions();
-
-    response.cookie('jwt', tokens.accessToken, {
-      ...cookieBase,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    response.cookie('jwt', tokens.accessToken, this.getAuthCookieOptions(7 * 24 * 60 * 60 * 1000));
 
     return {
       message: 'Token renovado com sucesso',

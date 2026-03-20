@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
@@ -14,15 +14,22 @@ export class PublicValidationService {
     const user = await this.userRepository.findOne({ where: { qrToken: token } });
 
     if (!user) {
-      throw new NotFoundException('Carteira não encontrada');
+      return { valid: false, reason: 'TOKEN_INVALID' };
+    }
+
+    if (user.status === 'INATIVO') {
+      return { valid: false, reason: 'USER_INATIVO' };
+    }
+
+    if (user.status !== 'ATIVO') {
+      return { valid: false, reason: 'USER_INADIMPLENTE' };
     }
 
     return {
-      valido: true,
+      valid: true,
       nomeCompleto: user.nomeCompleto,
       numeroOAB: user.numeroOAB,
       status: user.status,
-      mensagem: user.status === 'ATIVO' ? 'Carteira válida e ativa' : 'Carteira inadimplente',
     };
   }
 }

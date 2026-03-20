@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -25,8 +25,17 @@ export class DigitalCardService {
       await this.userRepository.save(user);
     }
 
-    const baseUrl = this.configService.get<string>('QR_CODE_BASE_URL');
-    const validationUrl = `${baseUrl}/${user.qrToken}`;
+    const appPublicUrl = this.configService.get<string>('APP_PUBLIC_URL');
+    const nodeEnv = this.configService.get<string>('NODE_ENV');
+
+    const baseUrl = appPublicUrl || (nodeEnv === 'development' ? 'http://192.168.0.127:3001' : null);
+
+    if (!baseUrl) {
+      throw new BadRequestException('APP_PUBLIC_URL não configurada');
+    }
+
+    const normalizedBase = baseUrl.replace(/\/$/, '');
+    const validationUrl = `${normalizedBase}/public/validar/${user.qrToken}`;
 
     const qrCodeDataUrl = await QRCode.toDataURL(validationUrl, {
       errorCorrectionLevel: 'H',

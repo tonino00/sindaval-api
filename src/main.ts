@@ -33,7 +33,27 @@ async function bootstrap() {
   });
 
   app.enableCors({
-    origin: corsOrigin,
+    origin: (origin, callback) => {
+      const allowedOrigins = new Set(
+        String(corsOrigin)
+          .split(',')
+          .map((o) => o.trim())
+          .filter(Boolean),
+      );
+
+      allowedOrigins.add('http://localhost:3001');
+      allowedOrigins.add('http://192.168.0.127:3001');
+
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.has(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`CORS bloqueado para origin: ${origin}`), false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
