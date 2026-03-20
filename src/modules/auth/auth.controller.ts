@@ -44,6 +44,7 @@ export class AuthController {
       httpOnly: true,
       secure: isProd,
       sameSite: (isProd ? 'none' : 'strict') as 'none' | 'strict',
+      path: '/',
     };
   }
 
@@ -286,6 +287,11 @@ export class AuthController {
     response.cookie('jwt', tokens.accessToken, {
       ...cookieBase,
       maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    response.cookie('refreshToken', tokens.refreshToken, {
+      ...cookieBase,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
     return {
