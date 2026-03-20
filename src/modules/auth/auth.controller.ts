@@ -38,6 +38,15 @@ export class AuthController {
     private readonly usersService: UsersService,
   ) {}
 
+  private getCookieOptions() {
+    const isProd = process.env.NODE_ENV === 'production';
+    return {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: (isProd ? 'none' : 'strict') as 'none' | 'strict',
+    };
+  }
+
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
@@ -83,17 +92,15 @@ export class AuthController {
     const user = await this.usersService.create(createUserDto, fotoUrl);
     const tokens = await this.authService.login(user);
 
+    const cookieBase = this.getCookieOptions();
+
     response.cookie('jwt', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      ...cookieBase,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     response.cookie('refreshToken', tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      ...cookieBase,
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
@@ -121,17 +128,15 @@ export class AuthController {
 
     const tokens = await this.authService.login(user);
 
+    const cookieBase = this.getCookieOptions();
+
     response.cookie('jwt', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      ...cookieBase,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     response.cookie('refreshToken', tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      ...cookieBase,
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
@@ -165,17 +170,15 @@ export class AuthController {
 
     const tokens = await this.authService.login(user);
 
+    const cookieBase = this.getCookieOptions();
+
     response.cookie('jwt', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      ...cookieBase,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     response.cookie('refreshToken', tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      ...cookieBase,
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
@@ -242,8 +245,9 @@ export class AuthController {
   @ApiCookieAuth()
   @ApiResponse({ status: 200, description: 'Logout realizado com sucesso' })
   async logout(@Res({ passthrough: true }) response: Response) {
-    response.clearCookie('jwt');
-    response.clearCookie('refreshToken');
+    const cookieBase = this.getCookieOptions();
+    response.clearCookie('jwt', cookieBase);
+    response.clearCookie('refreshToken', cookieBase);
 
     return {
       message: 'Logout realizado com sucesso',
@@ -277,10 +281,10 @@ export class AuthController {
 
     const tokens = await this.authService.refreshToken(refreshToken);
 
+    const cookieBase = this.getCookieOptions();
+
     response.cookie('jwt', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      ...cookieBase,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
