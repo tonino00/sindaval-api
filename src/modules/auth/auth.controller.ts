@@ -109,6 +109,8 @@ export class AuthController {
 
     return {
       message: 'Cadastro realizado com sucesso',
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       user: tokens.user,
     };
   }
@@ -146,6 +148,8 @@ export class AuthController {
     return {
       requiresTwoFactor: false,
       message: 'Login realizado com sucesso',
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       user: tokens.user,
     };
   }
@@ -188,6 +192,8 @@ export class AuthController {
     return {
       requiresTwoFactor: false,
       message: 'Login realizado com sucesso',
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       user: tokens.user,
     };
   }
@@ -298,6 +304,8 @@ export class AuthController {
 
     return {
       message: 'Token renovado com sucesso',
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       user: tokens.user,
     };
   }
