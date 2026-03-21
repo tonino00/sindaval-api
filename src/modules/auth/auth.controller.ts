@@ -41,6 +41,7 @@ export class AuthController {
   private getCookieOptions() {
     const isProd = process.env.NODE_ENV === 'production';
     const cookieDomain = process.env.COOKIE_DOMAIN;
+    const authDebug = process.env.AUTH_DEBUG === 'true';
     return {
       httpOnly: true,
       secure: isProd,
@@ -282,6 +283,10 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Token renovado com sucesso' })
   @ApiResponse({ status: 401, description: 'Refresh token inválido' })
   async refresh(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    if (process.env.AUTH_DEBUG === 'true') {
+      console.log('[AUTH_DEBUG][REFRESH] cookieHeaderPresent=', Boolean(request.headers?.cookie));
+      console.log('[AUTH_DEBUG][REFRESH] hasRefreshTokenCookie=', Boolean(request.cookies?.refreshToken));
+    }
     const refreshToken = request.cookies?.refreshToken;
 
     if (!refreshToken) {
