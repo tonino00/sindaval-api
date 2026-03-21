@@ -290,6 +290,7 @@ export class AuthController {
     if (process.env.AUTH_DEBUG === 'true') {
       console.log('[AUTH_DEBUG][REFRESH] cookieHeaderPresent=', Boolean(request.headers?.cookie));
       console.log('[AUTH_DEBUG][REFRESH] hasRefreshTokenCookie=', Boolean(request.cookies?.refreshToken));
+      console.log('[AUTH_DEBUG][REFRESH] hasRefreshTokenBody=', Boolean(refreshTokenFromBody));
     }
     const refreshToken = request.cookies?.refreshToken || refreshTokenFromBody;
 
