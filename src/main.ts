@@ -52,11 +52,22 @@ async function bootstrap() {
         return callback(null, true);
       }
 
+      console.log('❌ CORS bloqueou origem:', origin);
       return callback(new Error(`CORS bloqueado para origin: ${origin}`), false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Cookie',
+      'X-Requested-With',
+      'Accept',
+      'Origin',
+    ],
+    exposedHeaders: ['Set-Cookie'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
 
   app.setGlobalPrefix(apiPrefix);

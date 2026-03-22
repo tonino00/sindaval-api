@@ -38,17 +38,38 @@ export class AuthController {
     private readonly usersService: UsersService,
   ) {}
 
-  private getCookieOptions() {
+  private getCookieOptions(req?: Request) {
     const isProd = process.env.NODE_ENV === 'production';
     const cookieDomain = process.env.COOKIE_DOMAIN;
     const authDebug = process.env.AUTH_DEBUG === 'true';
-    return {
+    const isMobile = req?.isMobile || false;
+
+    let sameSite: 'none' | 'lax' | 'strict' = 'strict';
+
+    if (isProd) {
+      sameSite = isMobile ? 'none' : 'lax';
+    }
+
+    const cookieOptions = {
       httpOnly: true,
       secure: isProd,
-      sameSite: (isProd ? 'none' : 'strict') as 'none' | 'strict',
+      sameSite,
       path: '/',
-      ...(cookieDomain ? { domain: cookieDomain } : {}),
+      ...(cookieDomain && isProd ? { domain: cookieDomain } : {}),
     };
+
+    if (authDebug) {
+      console.log('[COOKIE_OPTIONS]', {
+        isProd,
+        isMobile,
+        sameSite,
+        secure: cookieOptions.secure,
+        domain: cookieOptions.domain || 'undefined',
+        userAgent: req?.userAgent?.substring(0, 100) || 'N/A',
+      });
+    }
+
+    return cookieOptions;
   }
 
   @Public()
@@ -84,6 +105,7 @@ export class AuthController {
   )
   async register(
     @Body() body: CreateUserDto,
+    @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
     @UploadedFile() foto?: { path: string },
   ) {
@@ -96,7 +118,7 @@ export class AuthController {
     const user = await this.usersService.create(createUserDto, fotoUrl);
     const tokens = await this.authService.login(user);
 
-    const cookieBase = this.getCookieOptions();
+    const cookieBase = this.getCookieOptions(request);
 
     response.cookie('jwt', tokens.accessToken, {
       ...cookieBase,
@@ -122,7 +144,11 @@ export class AuthController {
   @ApiOperation({ summary: 'Login de usuário' })
   @ApiResponse({ status: 200, description: 'Login realizado com sucesso' })
   @ApiResponse({ status: 401, description: 'Credenciais inválidas' })
-  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) response: Response) {
+  async login(
+    @Body() loginDto: LoginDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const user = await this.authService.validateUser(loginDto.email, loginDto.password);
 
     if (user.isTwoFactorEnabled) {
@@ -134,7 +160,7 @@ export class AuthController {
 
     const tokens = await this.authService.login(user);
 
-    const cookieBase = this.getCookieOptions();
+    const cookieBase = this.getCookieOptions(request);
 
     response.cookie('jwt', tokens.accessToken, {
       ...cookieBase,
@@ -159,7 +185,11 @@ export class AuthController {
   @Post('login/2fa')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login de usuário com 2FA (step 2)' })
-  async login2fa(@Body() dto: Login2faEndpointDto, @Res({ passthrough: true }) response: Response) {
+  async login2fa(
+    @Body() dto: Login2faEndpointDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const user = await this.authService.validateUser(dto.email, dto.password);
 
     if (!user.isTwoFactorEnabled) {
@@ -178,7 +208,7 @@ export class AuthController {
 
     const tokens = await this.authService.login(user);
 
-    const cookieBase = this.getCookieOptions();
+    const cookieBase = this.getCookieOptions(request);
 
     response.cookie('jwt', tokens.accessToken, {
       ...cookieBase,
@@ -254,8 +284,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout de usuário' })
   @ApiCookieAuth()
   @ApiResponse({ status: 200, description: 'Logout realizado com sucesso' })
-  async logout(@Res({ passthrough: true }) response: Response) {
-    const cookieBase = this.getCookieOptions();
+  async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    const cookieBase = this.getCookieOptions(request);
     response.clearCookie('jwt', cookieBase);
     response.clearCookie('refreshToken', cookieBase);
 
@@ -300,7 +330,7 @@ export class AuthController {
 
     const tokens = await this.authService.refreshToken(refreshToken);
 
-    const cookieBase = this.getCookieOptions();
+    const cookieBase = this.getCookieOptions(request);
 
     response.cookie('jwt', tokens.accessToken, {
       ...cookieBase,
