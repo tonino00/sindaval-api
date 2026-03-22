@@ -40,14 +40,13 @@ export class AuthController {
 
   private getCookieOptions(req?: Request) {
     const isProd = process.env.NODE_ENV === 'production';
-    const cookieDomain = process.env.COOKIE_DOMAIN;
     const authDebug = process.env.AUTH_DEBUG === 'true';
     const isMobile = req?.isMobile || false;
 
     let sameSite: 'none' | 'lax' | 'strict' = 'strict';
 
     if (isProd) {
-      sameSite = isMobile ? 'none' : 'lax';
+      sameSite = 'none';
     }
 
     const cookieOptions = {
@@ -55,7 +54,6 @@ export class AuthController {
       secure: isProd,
       sameSite,
       path: '/',
-      ...(cookieDomain && isProd ? { domain: cookieDomain } : {}),
     };
 
     if (authDebug) {
@@ -64,8 +62,9 @@ export class AuthController {
         isMobile,
         sameSite,
         secure: cookieOptions.secure,
-        domain: cookieOptions.domain || 'undefined',
+        hasCookieInRequest: Boolean(req?.cookies?.jwt),
         userAgent: req?.userAgent?.substring(0, 100) || 'N/A',
+        origin: req?.headers?.origin || 'N/A',
       });
     }
 
