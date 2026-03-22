@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -16,6 +16,7 @@ import { PublicValidationModule } from './modules/public-validation/public-valid
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { AgreementsModule } from './modules/agreements/agreements.module';
 import { typeOrmConfig } from './config/typeorm.config';
+import { MobileDetectionMiddleware } from './common/middleware/mobile-detection.middleware';
 
 @Module({
   imports: [
@@ -73,4 +74,8 @@ import { typeOrmConfig } from './config/typeorm.config';
     AgreementsModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(MobileDetectionMiddleware).forRoutes('*');
+  }
+}
