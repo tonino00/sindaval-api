@@ -130,7 +130,7 @@ export class EmailService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: 'Sindaval <onboarding@resend.dev>',
+          from: 'Sindaval <sindaval.noreply@gmail.com>',
           to: [email],
           subject: 'Redefinição de Senha - Sindaval',
           html: htmlContent,
@@ -207,7 +207,7 @@ export class EmailService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: 'Sindaval <onboarding@resend.dev>',
+          from: 'Sindaval <sindaval.noreply@gmail.com>',
           to: [email],
           subject: 'Senha Alterada com Sucesso - Sindaval',
           html: htmlContent,
