@@ -1,21 +1,27 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThan } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { User } from '../users/entities/user.entity';
 import { UserStatus } from '../../common/enums/user-status.enum';
 import { TwoFactorService } from './two-factor.service';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { EmailService } from '../../common/services/email.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(PasswordResetToken)
+    private passwordResetTokenRepository: Repository<PasswordResetToken>,
     private jwtService: JwtService,
     private configService: ConfigService,
     private twoFactorService: TwoFactorService,
+    private emailService: EmailService,
   ) {}
 
   async getUserById(userId: string): Promise<User> {
@@ -151,5 +157,74 @@ export class AuthService {
   async hashPassword(password: string): Promise<string> {
     const saltRounds = 10;
     return bcrypt.hash(password, saltRounds);
+  }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      return {
+        message: 'Se o email existir em nossa base, você receberá instruções para redefinir sua senha.',
+      };
+    }
+
+    await this.passwordResetTokenRepository.delete({
+      userId: user.id,
+      used: false,
+    });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 1);
+
+    await this.passwordResetTokenRepository.save({
+      token,
+      userId: user.id,
+      expiresAt,
+      used: false,
+    });
+
+    await this.emailService.sendPasswordResetEmail(email, token, user.nomeCompleto);
+
+    return {
+      message: 'Se o email existir em nossa base, você receberá instruções para redefinir sua senha.',
+    };
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const resetToken = await this.passwordResetTokenRepository.findOne({
+      where: { token, used: false },
+      relations: ['user'],
+    });
+
+    if (!resetToken) {
+      throw new BadRequestException('Token inválido ou expirado');
+    }
+
+    if (new Date() > resetToken.expiresAt) {
+      throw new BadRequestException('Token expirado');
+    }
+
+    const hashedPassword = await this.hashPassword(newPassword);
+
+    await this.userRepository.update(resetToken.userId, {
+      senhaHash: hashedPassword,
+    });
+
+    resetToken.used = true;
+    await this.passwordResetTokenRepository.save(resetToken);
+
+    await this.emailService.sendPasswordChangedNotification(
+      resetToken.user.email,
+      resetToken.user.nomeCompleto,
+    );
+
+    return { message: 'Senha redefinida com sucesso' };
+  }
+
+  async cleanupExpiredTokens(): Promise<void> {
+    await this.passwordResetTokenRepository.delete({
+      expiresAt: LessThan(new Date()),
+    });
   }
 }

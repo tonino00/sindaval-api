@@ -13,10 +13,12 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { APP_GUARD } from '@nestjs/core';
 import { TwoFactorService } from './two-factor.service';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { EmailService } from '../../common/services/email.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, PasswordResetToken]),
     UsersModule,
     PassportModule,
     JwtModule.registerAsync({
@@ -34,6 +36,7 @@ import { TwoFactorService } from './two-factor.service';
   providers: [
     AuthService,
     TwoFactorService,
+    EmailService,
     JwtStrategy,
     LocalStrategy,
     {
