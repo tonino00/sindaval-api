@@ -29,6 +29,8 @@ import { UsersService } from '../users/users.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { Generate2FADto, Verify2FADto, Login2faEndpointDto } from './dto/two-factor.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -347,5 +349,24 @@ export class AuthController {
       refreshToken: tokens.refreshToken,
       user: tokens.user,
     };
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Solicitar redefinição de senha' })
+  @ApiResponse({ status: 200, description: 'Email de redefinição enviado (se o email existir)' })
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto.email);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Redefinir senha com token' })
+  @ApiResponse({ status: 200, description: 'Senha redefinida com sucesso' })
+  @ApiResponse({ status: 400, description: 'Token inválido ou expirado' })
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.newPassword);
   }
 }
