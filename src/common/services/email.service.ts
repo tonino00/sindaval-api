@@ -1,14 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as sgMail from '@sendgrid/mail';
 
 @Injectable()
 export class EmailService {
-  constructor(private configService: ConfigService) {}
+  constructor(private configService: ConfigService) {
+    const sendGridApiKey = this.configService.get<string>('SENDGRID_API_KEY');
+    if (sendGridApiKey) {
+      sgMail.setApiKey(sendGridApiKey);
+    }
+  }
 
   async sendPasswordResetEmail(email: string, token: string, userName: string) {
     const frontendUrl = this.configService.get<string>('FRONTEND_URL');
     const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
-    const resendApiKey = this.configService.get<string>('RESEND_API_KEY');
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -122,26 +127,15 @@ export class EmailService {
       </html>
     `;
 
+    const msg = {
+      to: email,
+      from: 'Sindaval <sindaval.noreply@gmail.com>',
+      subject: 'Redefinição de Senha - Sindaval',
+      html: htmlContent,
+    };
+
     try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${resendApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: 'Sindaval <noreply@sindaval.com.br>',
-          to: [email],
-          subject: 'Redefinição de Senha - Sindaval',
-          html: htmlContent,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Resend API error: ${error}`);
-      }
-
+      await sgMail.send(msg);
       console.log('✅ Email de reset de senha enviado para:', email);
       return true;
     } catch (error) {
@@ -151,7 +145,6 @@ export class EmailService {
   }
 
   async sendPasswordChangedNotification(email: string, userName: string) {
-    const resendApiKey = this.configService.get<string>('RESEND_API_KEY');
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -199,27 +192,15 @@ export class EmailService {
       </html>
     `;
 
+    const msg = {
+      to: email,
+      from: 'Sindaval <sindaval.noreply@gmail.com>',
+      subject: 'Senha Alterada com Sucesso - Sindaval',
+      html: htmlContent,
+    };
+
     try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${resendApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: 'Sindaval <noreply@sindaval.com.br>',
-          to: [email],
-          subject: 'Senha Alterada com Sucesso - Sindaval',
-          html: htmlContent,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        console.error('❌ Erro ao enviar notificação:', error);
-        return;
-      }
-
+      await sgMail.send(msg);
       console.log('✅ Notificação de senha alterada enviada para:', email);
     } catch (error) {
       console.error('❌ Erro ao enviar notificação:', error);
