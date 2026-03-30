@@ -1,4 +1,5 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Category } from '../../categories/entities/category.entity';
 
 @Entity('agreements')
 export class Agreement {
@@ -10,6 +11,13 @@ export class Agreement {
 
   @Column({ type: 'text', nullable: true })
   categoria: string;
+
+  @ManyToOne(() => Category, (category) => category.agreements, { nullable: true })
+  @JoinColumn({ name: 'category_id' })
+  category: Category;
+
+  @Column({ name: 'category_id', type: 'uuid', nullable: true })
+  categoryId: string;
 
   @Column({ type: 'int', nullable: true })
   desconto: number;

@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateIf } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, ValidateIf } from 'class-validator';
 
 export class CreateAgreementDto {
   @ApiProperty({ required: false, description: 'Alias para titulo (compatibilidade com payload do front)' })
@@ -15,10 +15,15 @@ export class CreateAgreementDto {
   @IsNotEmpty()
   titulo: string;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, description: 'Categoria em texto (deprecated, use categoryId)' })
   @IsString()
   @IsOptional()
   categoria?: string;
+
+  @ApiProperty({ required: false, description: 'ID da categoria associada' })
+  @IsUUID()
+  @IsOptional()
+  categoryId?: string;
 
   @ApiProperty({ required: false })
   @Type(() => Number)
