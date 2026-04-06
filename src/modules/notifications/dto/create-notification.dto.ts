@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsOptional, IsUUID, IsEmail, ValidateIf } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { NotificationType } from '../../../common/enums/notification-type.enum';
 import { NotificationChannel } from '../../../common/enums/notification-channel.enum';
@@ -32,4 +32,10 @@ export class CreateNotificationDto {
   @IsUUID()
   @IsOptional()
   targetUserId?: string;
+
+  @ApiProperty({ required: false })
+  @IsEmail()
+  @ValidateIf(o => o.tipo === 'INDIVIDUAL' && o.canal === 'EMAIL')
+  @IsNotEmpty()
+  destinatario?: string;
 }

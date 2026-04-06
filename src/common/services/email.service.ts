@@ -206,4 +206,86 @@ export class EmailService {
       console.error('❌ Erro ao enviar notificação:', error);
     }
   }
+
+  async sendNotificationEmail(email: string, userName: string, titulo: string, mensagem: string) {
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+          }
+          .container {
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+          }
+          .header h1 {
+            color: #2c3e50;
+            margin: 0;
+          }
+          .content {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+          }
+          .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 20px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>${titulo}</h1>
+          </div>
+          
+          <div class="content">
+            <p>Olá, <strong>${userName}</strong>!</p>
+            
+            <p>${mensagem}</p>
+          </div>
+          
+          <div class="footer">
+            <p>Este é um email automático. Por favor, não responda.</p>
+            <p>&copy; ${new Date().getFullYear()} Sindaval - Todos os direitos reservados</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const msg = {
+      to: email,
+      from: 'Sindaval <sindaval.noreply@gmail.com>',
+      subject: `${titulo} - Sindaval`,
+      html: htmlContent,
+    };
+
+    try {
+      await sgMail.send(msg);
+      console.log('✅ Email de notificação enviado para:', email);
+      return true;
+    } catch (error) {
+      console.error('❌ Erro ao enviar email de notificação:', error);
+      throw new Error('Falha ao enviar email de notificação');
+    }
+  }
 }

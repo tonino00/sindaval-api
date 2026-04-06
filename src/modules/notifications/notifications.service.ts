@@ -8,6 +8,8 @@ import { CreateNotificationDto } from './dto/create-notification.dto';
 import { NotificationType } from '../../common/enums/notification-type.enum';
 import { NotificationSegment } from '../../common/enums/notification-segment.enum';
 import { UserStatus } from '../../common/enums/user-status.enum';
+import { EmailService } from '../../common/services/email.service';
+import { NotificationChannel } from '../../common/enums/notification-channel.enum';
 
 @Injectable()
 export class NotificationsService {
@@ -18,11 +20,30 @@ export class NotificationsService {
     private userNotificationRepository: Repository<UserNotification>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    private emailService: EmailService,
   ) {}
 
   async create(createNotificationDto: CreateNotificationDto, createdBy: string): Promise<Notification> {
+    let targetUserId = createNotificationDto.targetUserId;
+    let usuario: User | null = null;
+
+    if (createNotificationDto.tipo === NotificationType.INDIVIDUAL && 
+        createNotificationDto.canal === 'EMAIL' && 
+        createNotificationDto.destinatario) {
+      usuario = await this.userRepository.findOne({ 
+        where: { email: createNotificationDto.destinatario } 
+      });
+      
+      if (!usuario) {
+        throw new NotFoundException('Usuário não encontrado');
+      }
+      
+      targetUserId = usuario.id;
+    }
+
     const notification = this.notificationRepository.create({
       ...createNotificationDto,
+      targetUserId,
       createdBy,
     });
 
@@ -30,10 +51,25 @@ export class NotificationsService {
 
     if (createNotificationDto.tipo === NotificationType.INDIVIDUAL) {
       await this.userNotificationRepository.save({
-        userId: createNotificationDto.targetUserId,
+        userId: targetUserId,
         notificationId: savedNotification.id,
         lida: false,
       });
+
+      if (createNotificationDto.canal === NotificationChannel.EMAIL && usuario) {
+        try {
+          await this.emailService.sendNotificationEmail(
+            usuario.email,
+            usuario.nomeCompleto,
+            createNotificationDto.titulo,
+            createNotificationDto.mensagem,
+          );
+          savedNotification.emailSent = true;
+          await this.notificationRepository.save(savedNotification);
+        } catch (error) {
+          console.error('Erro ao enviar email de notificação:', error);
+        }
+      }
     } else {
       const segmento = createNotificationDto.segmento ?? NotificationSegment.TODOS;
       const users = await this.getUsersBySegment(segmento);
