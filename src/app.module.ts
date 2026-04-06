@@ -15,6 +15,7 @@ import { DigitalCardModule } from './modules/digital-card/digital-card.module';
 import { PublicValidationModule } from './modules/public-validation/public-validation.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { AgreementsModule } from './modules/agreements/agreements.module';
+import { CategoriesModule } from './modules/categories/categories.module';
 import { typeOrmConfig } from './config/typeorm.config';
 import { MobileDetectionMiddleware } from './common/middleware/mobile-detection.middleware';
 
@@ -72,6 +73,7 @@ import { MobileDetectionMiddleware } from './common/middleware/mobile-detection.
     PublicValidationModule,
     AuditLogsModule,
     AgreementsModule,
+    CategoriesModule,
   ],
 })
 export class AppModule implements NestModule {

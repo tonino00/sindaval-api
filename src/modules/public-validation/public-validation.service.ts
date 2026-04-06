@@ -29,6 +29,7 @@ export class PublicValidationService {
       valid: true,
       nomeCompleto: user.nomeCompleto,
       numeroOAB: user.numeroOAB,
+      fotoUrl: user.fotoUrl,
       status: user.status,
     };
   }

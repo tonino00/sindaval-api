@@ -24,7 +24,10 @@ export class AgreementsService {
   }
 
   findAll() {
-    return this.agreementRepository.find({ order: { createdAt: 'DESC' } });
+    return this.agreementRepository.find({
+      relations: ['category'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async update(id: string, dto: UpdateAgreementDto) {
